@@ -250,20 +250,42 @@ document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('cli
 const urlParams = new URLSearchParams(location.search);
 const publicToken = urlParams.get('c');
 
+function updateChrome(){
+  const show = !!session && !publicToken;
+  document.getElementById('btn-home').style.display = show ? 'flex' : 'none';
+  document.getElementById('fab-add').style.display = show ? 'flex' : 'none';
+}
+
+function renderNotConfigured(){
+  document.getElementById('content').innerHTML = `
+    <div class="empty">
+      <div class="glyph">⚙️</div>
+      <p><b>O Supabase ainda não foi configurado neste arquivo.</b><br><br>
+      Abra o <code>index.html</code>, troque <code>SUPABASE_URL</code> e
+      <code>SUPABASE_ANON_KEY</code> pelos valores reais do seu projeto
+      (Project Settings → API no Supabase) e rode o <code>schema.sql</code>
+      no SQL Editor. Sem isso, login e cadastro não funcionam — veja o
+      SETUP.md, passos 1 e 2.</p>
+    </div>`;
+}
+
 async function boot(){
+  if(SUPABASE_URL.includes('SEU-PROJETO') || SUPABASE_ANON_KEY.includes('SUA-ANON-KEY')){
+    renderNotConfigured();
+    return;
+  }
+
   if(publicToken){
     document.getElementById('eyebrow').textContent = 'Consulta pública';
     await renderPublicView(publicToken);
     return;
   }
 
-  document.getElementById('btn-home').style.display = 'flex';
-  document.getElementById('fab-add').style.display = 'flex';
-
   const { data } = await sb.auth.getSession();
   session = data.session;
-  sb.auth.onAuthStateChange((_event, s) => { session = s; if(!publicToken) render(); });
+  sb.auth.onAuthStateChange((_event, s) => { session = s; if(!publicToken){ updateChrome(); render(); } });
 
+  updateChrome();
   if(!session){ renderAuth(); } else { await loadMyCars(); render(); setupPush(); }
 }
 
@@ -344,6 +366,7 @@ function renderAuth(){
     if(error){ err.textContent = error.message; err.classList.add('show'); return; }
     if(mode === 'signup' && !data.session){ showToast('Conta criada! Verifique seu e-mail para confirmar.'); return; }
     session = data.session;
+    updateChrome();
     await loadMyCars();
     render();
     setupPush();
@@ -405,7 +428,7 @@ function renderHome(){
     content.querySelectorAll('.ticket').forEach(el => el.addEventListener('click', () => { route = {screen:'car', carId: el.dataset.id}; render(); }));
   }
   document.getElementById('link-claim').onclick = () => openModal('modal-claim');
-  document.getElementById('link-logout').onclick = async () => { await sb.auth.signOut(); session=null; render(); };
+  document.getElementById('link-logout').onclick = async () => { await sb.auth.signOut(); session=null; updateChrome(); render(); };
 }
 
 function renderCarDetail(carId){
