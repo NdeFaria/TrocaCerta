@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Troca Certa</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#15120E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#15120E; --surface:#1F1B16; --surface-2:#2A251E;
+    --ink:#F3ECE1; --ink-dim:#B8AFA0; --ink-faint:#7E7568;
+    --accent:#E4A23A; --accent-ink:#2A1C05;
+    --ok:#4FA79B; --warn:#E4A23A; --danger:#D6553F;
+    --hairline:rgba(243,236,225,0.12);
+    --radius-lg:22px; --radius-md:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(circle at 20% -10%, #241c12 0%, transparent 45%), var(--bg);
+    color:var(--ink); font-family:'Inter',sans-serif;
+    min-height:100vh; display:flex; justify-content:center; padding:24px 14px 60px;
+  }
+  .phone{
+    width:100%; max-width:430px; background:var(--surface); border-radius:32px;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px var(--hairline);
+    overflow:hidden; min-height:88vh; display:flex; flex-direction:column; position:relative;
+  }
+  .topbar{ padding:22px 22px 16px; border-bottom:1px solid var(--hairline); display:flex; align-items:center; justify-content:space-between; }
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; color:var(--ink-faint); text-transform:uppercase; }
+  .brand h1{ font-family:'Space Grotesk',sans-serif; font-size:21px; margin:0; font-weight:700; letter-spacing:-0.01em; }
+  .brand h1 span{color:var(--accent);}
+  .icon-btn{ width:38px;height:38px;border-radius:12px; background:var(--surface-2); border:1px solid var(--hairline); color:var(--ink); display:flex;align-items:center;justify-content:center; cursor:pointer;font-size:18px; }
+  .content{flex:1;overflow-y:auto;padding:18px 18px 100px;}
+  .fab{ position:absolute; right:20px; bottom:24px; width:56px;height:56px;border-radius:18px; background:var(--accent); color:var(--accent-ink); font-size:26px; font-weight:700; display:flex;align-items:center;justify-content:center; border:none; cursor:pointer; box-shadow:0 12px 24px -6px rgba(228,162,58,0.55); }
+  .empty{ margin-top:60px; text-align:center; color:var(--ink-dim); }
+  .empty .glyph{font-size:38px;margin-bottom:10px;}
+  .empty p{font-size:13.5px; line-height:1.5; margin:6px auto 0; max-width:230px;}
+  .ticket{ background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--radius-md); display:flex; margin-bottom:14px; overflow:hidden; cursor:pointer; }
+  .ticket-main{ flex:1; padding:14px 14px; display:flex; flex-direction:column; gap:6px; }
+  .ticket-nick{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px;}
+  .ticket-plate{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);letter-spacing:0.05em;}
+  .ticket-km{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink-dim);}
+  .ticket-stub{ width:104px; border-left:1.5px dashed var(--hairline); display:flex;flex-direction:column;align-items:center;justify-content:center; gap:5px; padding:10px 8px; background:rgba(0,0,0,0.12); }
+  .pill{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; letter-spacing:0.06em; padding:4px 8px; border-radius:100px; text-align:center; line-height:1.3; }
+  .pill.ok{background:rgba(79,167,155,0.16);color:var(--ok);}
+  .pill.warn{background:rgba(228,162,58,0.16);color:var(--accent);}
+  .pill.danger{background:rgba(214,85,63,0.18);color:var(--danger);}
+  .stub-sub{font-size:9.5px;color:var(--ink-faint);text-align:center;}
+  .back-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .back-row .icon-btn{width:32px;height:32px;border-radius:9px;font-size:15px;}
+  .back-row h2{font-family:'Space Grotesk',sans-serif;font-size:18px;margin:0;font-weight:600;}
+  .hangtag{ background:linear-gradient(180deg,#26201A,#1D1913); border:1px solid var(--hairline); border-radius:20px; padding:22px 18px 18px; display:flex; flex-direction:column; align-items:center; margin-bottom:18px; position:relative; }
+  .hangtag::before{ content:""; width:14px;height:14px;border-radius:50%; background:var(--bg); border:1px solid var(--hairline); position:absolute; top:-7px; left:50%; transform:translateX(-50%); }
+  .qr-box{ background:#fff; padding:10px; border-radius:10px; line-height:0; margin-bottom:12px; }
+  .qr-token{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.05em; color:var(--ink-dim); background:var(--surface); padding:5px 10px; border-radius:8px; border:1px solid var(--hairline); }
+  .qr-hint{font-size:11px;color:var(--ink-faint);margin-top:10px;text-align:center;line-height:1.5;max-width:260px;}
+  .stat-row{display:flex;gap:10px;margin-bottom:16px;}
+  .stat{ flex:1; background:var(--surface-2); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:12px 12px; }
+  .stat-label{font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;}
+  .stat-val{font-family:'JetBrains Mono',monospace;font-size:16.5px;font-weight:700;}
+  .stat-val.accent{color:var(--accent);}
+  .status-banner{ border-radius:var(--radius-md); padding:13px 14px; margin-bottom:18px; display:flex; align-items:center; gap:10px; font-size:13px; line-height:1.4; border:1px solid var(--hairline); }
+  .status-banner.ok{background:rgba(79,167,155,0.10);}
+  .status-banner.warn{background:rgba(228,162,58,0.10);}
+  .status-banner.danger{background:rgba(214,85,63,0.12);}
+  .status-banner b{display:block;font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin-bottom:2px;}
+  .action-row{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
+  .btn{ flex:1; min-width:120px; padding:12px 10px; border-radius:12px; border:1px solid var(--hairline); background:var(--surface-2); color:var(--ink); font-family:'Inter',sans-serif; font-weight:600; font-size:12.5px; cursor:pointer; text-align:center; }
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border:none;}
+  .btn.ghost{background:transparent;}
+  .btn.full{width:100%;}
+  .btn.danger-outline{border-color:rgba(214,85,63,0.4);color:var(--danger);}
+  .section-title{ font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; margin:22px 0 10px; }
+  .hist-item{ display:flex; justify-content:space-between; align-items:center; padding:12px 4px; border-bottom:1px solid var(--hairline); font-size:12.5px; }
+  .hist-item:last-child{border-bottom:none;}
+  .hist-left{display:flex;flex-direction:column;gap:3px;}
+  .hist-tag{font-size:9.5px;font-weight:700;letter-spacing:0.05em;padding:2px 7px;border-radius:100px;width:fit-content;}
+  .hist-tag.change{background:rgba(228,162,58,0.16);color:var(--accent);}
+  .hist-tag.update{background:rgba(184,175,160,0.14);color:var(--ink-dim);}
+  .hist-tag.owner{background:rgba(79,167,155,0.16);color:var(--ok);}
+  .hist-date{color:var(--ink-faint);font-size:11px;}
+  .hist-km{font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .overlay{ position:fixed; inset:0; background:rgba(10,8,5,0.62); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:20; }
+  .overlay.open{opacity:1; pointer-events:auto;}
+  .sheet{ width:100%; max-width:430px; background:var(--surface); border-radius:24px 24px 0 0; border:1px solid var(--hairline); padding:22px 20px 26px; transform:translateY(16px); transition:transform .18s ease; max-height:88vh; overflow-y:auto; }
+  .overlay.open .sheet{transform:translateY(0);}
+  .sheet h3{font-family:'Space Grotesk',sans-serif;margin:0 0 4px;font-size:17px;}
+  .sheet .desc{font-size:12.5px;color:var(--ink-dim);margin-bottom:16px;line-height:1.5;}
+  label{font-size:11.5px; color:var(--ink-dim); display:block; margin:12px 0 6px;}
+  input, select{ width:100%; background:var(--surface-2); border:1px solid var(--hairline); color:var(--ink); padding:11px 12px; border-radius:10px; font-family:'JetBrains Mono',monospace; font-size:14px; }
+  input::placeholder{color:var(--ink-faint); font-family:'Inter',sans-serif;}
+  .field-error{color:var(--danger); font-size:11px; margin-top:6px; display:none;}
+  .field-error.show{display:block;}
+  .sheet-actions{display:flex;gap:10px;margin-top:20px;}
+  .interval-grid{display:flex; gap:8px; margin-top:2px;}
+  .interval-opt{ flex:1; text-align:center; padding:9px 6px; border-radius:10px; border:1px solid var(--hairline); background:var(--surface-2); font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; }
+  .interval-opt.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;}
+  .toast{ position:absolute; left:50%; bottom:90px; transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--hairline); padding:10px 16px; border-radius:100px; font-size:12px; opacity:0; transition:opacity .25s ease; pointer-events:none; z-index:30; white-space:nowrap; max-width:85%; text-align:center; }
+  .toast.show{opacity:1;}
+  .lock-note{display:flex;gap:8px;align-items:flex-start;background:rgba(228,162,58,0.08);border:1px solid var(--hairline);border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--ink-dim);margin-top:14px;line-height:1.5;}
+  .code-display{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;letter-spacing:0.15em;text-align:center;background:var(--surface-2);border:1px solid var(--hairline);border-radius:14px;padding:18px;margin:14px 0;color:var(--accent);}
+  .tab-row{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{flex:1;text-align:center;padding:9px;border-radius:10px;border:1px solid var(--hairline);background:var(--surface-2);font-size:12px;font-weight:600;cursor:pointer;}
+  .tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
+  a.link{color:var(--accent);text-decoration:none;font-weight:600;}
+  .center-msg{margin-top:80px;text-align:center;color:var(--ink-dim);font-size:13px;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <div class="brand">
+      <span class="eyebrow" id="eyebrow">Manutenção de veículos</span>
+      <h1>Troca<span>Certa</span></h1>
+    </div>
+    <div class="icon-btn" id="btn-home" title="Início" style="display:none">⌂</div>
+  </div>
+  <div class="content" id="content"><div class="center-msg">Carregando…</div></div>
+  <button class="fab" id="fab-add" title="Adicionar carro" style="display:none">+</button>
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- Modal: adicionar carro -->
+<div class="overlay" id="modal-add">
+  <div class="sheet">
+    <h3>Cadastrar carro</h3>
+    <div class="desc">Isso gera o QR Code único desse veículo. Só quem tem o RENAVAM em mãos pode cadastrar — placa e RENAVAM nunca aparecem pra quem escaneia o QR.</div>
+    <label>Apelido do carro</label>
+    <input id="f-nick" type="text" placeholder="Ex: Onix prata, Carro da família">
+    <label>Placa</label>
+    <input id="f-plate" type="text" placeholder="Ex: ABC1D23" style="text-transform:uppercase">
+    <label>RENAVAM</label>
+    <input id="f-renavam" type="text" placeholder="Ex: 00123456789" inputmode="numeric">
+    <label>KM atual do odômetro</label>
+    <input id="f-km" type="number" placeholder="Ex: 42500">
+    <label>Intervalo de troca</label>
+    <div class="interval-grid" id="interval-grid">
+      <div class="interval-opt" data-val="5000">5.000 km</div>
+      <div class="interval-opt active" data-val="7500">7.500 km</div>
+      <div class="interval-opt" data-val="10000">10.000 km</div>
+    </div>
+    <div class="field-error" id="f-add-error"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost full" data-close="modal-add">Cancelar</button>
+      <button class="btn primary full" id="btn-save-car">Criar carro</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: registrar troca -->
+<div class="overlay" id="modal-change">
+  <div class="sheet">
+    <h3>Registrar troca de óleo</h3>
+    <div class="desc">Informe o KM no momento da troca. A próxima troca é calculada automaticamente pelo intervalo do carro.</div>
+    <label>KM no momento da troca</label>
+    <input id="f-change-km" type="number" placeholder="Ex: 48200">
+    <label>Data</label>
+    <input id="f-change-date" type="date">
+    <div class="field-error" id="f-change-error"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost full" data-close="modal-change">Cancelar</button>
+      <button class="btn primary full" id="btn-save-change">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: atualizar km -->
+<div class="overlay" id="modal-update">
+  <div class="sheet">
+    <h3>Atualizar KM atual</h3>
+    <div class="desc">Use isso entre uma troca e outra, pra manter a estimativa de data em dia.</div>
+    <label>KM atual do odômetro</label>
+    <input id="f-update-km" type="number" placeholder="Ex: 46800">
+    <div class="field-error" id="f-update-error"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost full" data-close="modal-update">Cancelar</button>
+      <button class="btn primary full" id="btn-save-update">Atualizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: transferir (dono atual gera código) -->
+<div class="overlay" id="modal-transfer">
+  <div class="sheet">
+    <h3>Transferir posse do carro</h3>
+    <div class="desc">Gere um código de uma vez e passe pro novo dono. Ele vai precisar do código + do RENAVAM do carro pra confirmar — assim só quem realmente recebeu o carro consegue assumir.</div>
+    <div id="transfer-code-area"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost full" data-close="modal-transfer">Fechar</button>
+      <button class="btn primary full" id="btn-gen-transfer">Gerar código</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: resgatar carro por transferência -->
+<div class="overlay" id="modal-claim">
+  <div class="sheet">
+    <h3>Assumir um carro</h3>
+    <div class="desc">Digite o código de 6 dígitos que o antigo dono te passou e o RENAVAM do carro pra confirmar.</div>
+    <label>Código de transferência</label>
+    <input id="f-claim-code" type="text" inputmode="numeric" placeholder="Ex: 482913">
+    <label>Placa (opcional)</label>
+    <input id="f-claim-plate" type="text" style="text-transform:uppercase">
+    <label>RENAVAM</label>
+    <input id="f-claim-renavam" type="text" inputmode="numeric">
+    <div class="field-error" id="f-claim-error"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost full" data-close="modal-claim">Cancelar</button>
+      <button class="btn primary full" id="btn-save-claim">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================
+// CONFIGURAÇÃO — troque pelos valores do SEU projeto Supabase
+// (Project Settings > API)
+// =========================================================
+const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co';
+const SUPABASE_ANON_KEY = 'SUA-ANON-KEY-AQUI';
+const VAPID_PUBLIC_KEY = 'SUA-VAPID-PUBLIC-KEY-AQUI'; // veja SETUP.md
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let session = null;
+let myCars = [];
+let route = { screen: 'loading', carId: null };
+let pendingIntervalVal = 7500;
+
+// ---------- helpers ----------
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtKm(n){ return Number(n||0).toLocaleString('pt-BR') + ' km'; }
+function fmtDate(iso){ if(!iso) return '—'; const d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' }); }
+function showToast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2600); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => closeModal(el.dataset.close)));
+
+// =========================================================
+// ROTEAMENTO DE ENTRADA: link público do QR (?c=TOKEN) não exige login
+// =========================================================
+const urlParams = new URLSearchParams(location.search);
+const publicToken = urlParams.get('c');
+
+async function boot(){
+  if(publicToken){
+    document.getElementById('eyebrow').textContent = 'Consulta pública';
+    await renderPublicView(publicToken);
+    return;
+  }
+
+  document.getElementById('btn-home').style.display = 'flex';
+  document.getElementById('fab-add').style.display = 'flex';
+
+  const { data } = await sb.auth.getSession();
+  session = data.session;
+  sb.auth.onAuthStateChange((_event, s) => { session = s; if(!publicToken) render(); });
+
+  if(!session){ renderAuth(); } else { await loadMyCars(); render(); setupPush(); }
+}
+
+// =========================================================
+// VIEW PÚBLICA (quem escaneia o QR sem estar logado)
+// =========================================================
+async function renderPublicView(token){
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="center-msg">Carregando informações do carro…</div>';
+  const { data, error } = await sb.rpc('get_public_car', { p_token: token });
+  if(error || !data || !data[0]){
+    content.innerHTML = '<div class="center-msg">QR Code não encontrado ou inválido.</div>';
+    return;
+  }
+  const car = data[0];
+  const statusMap = {
+    ok: {cls:'ok', label:'Óleo em dia', txt:'A próxima troca ainda está dentro do intervalo normal.'},
+    proxima: {cls:'warn', label:'Troca se aproximando', txt:'Faltam menos de 500 km para a próxima troca recomendada.'},
+    atrasada: {cls:'danger', label:'Troca atrasada', txt:'O KM atual já passou do ponto recomendado para a troca.'}
+  };
+  const st = statusMap[car.status] || statusMap.ok;
+  const hist = (car.history||[]).map(h => `
+    <div class="hist-item">
+      <div class="hist-left">
+        <span class="hist-tag ${h.tipo==='troca'?'change':'update'}">${h.tipo==='troca'?'Troca de óleo':'Atualização de KM'}</span>
+        <span class="hist-date">${fmtDate(h.data)}</span>
+      </div>
+      <div class="hist-km">${fmtKm(h.km)}</div>
+    </div>`).join('') || '<div class="center-msg" style="margin-top:20px;">Sem histórico ainda.</div>';
+
+  content.innerHTML = `
+    <div class="hangtag">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;margin-bottom:14px;">${escapeHtml(car.nickname)}</div>
+      <div class="qr-hint">Este é o histórico público deste veículo. Placa e RENAVAM não são exibidos aqui — só o dono cadastrado vê e edita esses dados.</div>
+    </div>
+    <div class="status-banner ${st.cls}"><div><b>${st.label}</b>${st.txt}</div></div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-label">KM atual</div><div class="stat-val">${fmtKm(car.current_km)}</div></div>
+      <div class="stat"><div class="stat-label">Próxima troca</div><div class="stat-val accent">${fmtKm(car.next_change_km)}</div></div>
+    </div>
+    <div class="section-title">Histórico</div>
+    ${hist}
+    <div class="lock-note">🔒 É seu esse carro? <a class="link" href="${location.origin + location.pathname}">Entre no Troca Certa</a> pra assumir a manutenção dele.</div>
+  `;
+}
+
+// =========================================================
+// AUTENTICAÇÃO
+// =========================================================
+function renderAuth(){
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div class="tab-row">
+      <div class="tab active" id="tab-login">Entrar</div>
+      <div class="tab" id="tab-signup">Criar conta</div>
+    </div>
+    <label>E-mail</label>
+    <input id="auth-email" type="email" placeholder="voce@email.com">
+    <label>Senha</label>
+    <input id="auth-pass" type="password" placeholder="Mínimo 6 caracteres">
+    <div class="field-error" id="auth-error"></div>
+    <button class="btn primary full" id="btn-auth" style="margin-top:18px;">Entrar</button>
+    <div style="text-align:center;margin-top:16px;">
+      <a class="link" id="btn-claim-noauth" style="font-size:12px;">Recebi um carro por transferência</a>
+    </div>
+  `;
+  let mode = 'login';
+  document.getElementById('tab-login').onclick = () => { mode='login'; document.getElementById('tab-login').classList.add('active'); document.getElementById('tab-signup').classList.remove('active'); document.getElementById('btn-auth').textContent='Entrar'; };
+  document.getElementById('tab-signup').onclick = () => { mode='signup'; document.getElementById('tab-signup').classList.add('active'); document.getElementById('tab-login').classList.remove('active'); document.getElementById('btn-auth').textContent='Criar conta'; };
+  document.getElementById('btn-auth').onclick = async () => {
+    const email = document.getElementById('auth-email').value.trim();
+    const pass = document.getElementById('auth-pass').value;
+    const err = document.getElementById('auth-error');
+    err.classList.remove('show');
+    if(!email || pass.length < 6){ err.textContent='Preencha um e-mail válido e senha com 6+ caracteres.'; err.classList.add('show'); return; }
+    const fn = mode === 'login' ? sb.auth.signInWithPassword({email, password:pass}) : sb.auth.signUp({email, password:pass});
+    const { data, error } = await fn;
+    if(error){ err.textContent = error.message; err.classList.add('show'); return; }
+    if(mode === 'signup' && !data.session){ showToast('Conta criada! Verifique seu e-mail para confirmar.'); return; }
+    session = data.session;
+    await loadMyCars();
+    render();
+    setupPush();
+  };
+  document.getElementById('btn-claim-noauth').onclick = () => showToast('Crie sua conta ou entre primeiro — depois use "Assumir carro" na tela inicial.');
+}
+
+// =========================================================
+// DADOS
+// =========================================================
+async function loadMyCars(){
+  const { data, error } = await sb.from('my_cars').select('*').order('created_at', { ascending:false });
+  if(error){ showToast('Erro ao carregar carros: ' + error.message); myCars = []; return; }
+  myCars = data || [];
+}
+
+// =========================================================
+// RENDER PRINCIPAL (app logado)
+// =========================================================
+function render(){
+  if(!session){ renderAuth(); return; }
+  if(route.screen === 'home') renderHome();
+  else if(route.screen === 'car') renderCarDetail(route.carId);
+}
+
+function renderHome(){
+  const content = document.getElementById('content');
+  if(myCars.length === 0){
+    content.innerHTML = `
+      <div class="empty">
+        <div class="glyph">🚗</div>
+        <p>Nenhum carro cadastrado ainda. Toque no + pra criar o primeiro QR Code.</p>
+      </div>
+      <div style="text-align:center;margin-top:24px;">
+        <a class="link" id="link-claim" style="font-size:12.5px;">Recebi um carro por transferência</a>
+      </div>
+      <div style="text-align:center;margin-top:30px;">
+        <a class="link" id="link-logout" style="font-size:11.5px;color:var(--ink-faint);">Sair da conta</a>
+      </div>
+    `;
+  } else {
+    content.innerHTML = myCars.map(c => {
+      const pillCls = c.status === 'atrasada' ? 'danger' : c.status === 'proxima' ? 'warn' : 'ok';
+      const pillTxt = c.status === 'atrasada' ? 'Atrasada' : c.status === 'proxima' ? 'Próxima' : 'Em dia';
+      return `
+      <div class="ticket" data-id="${c.id}">
+        <div class="ticket-main">
+          <div class="ticket-nick">${escapeHtml(c.nickname)}</div>
+          <div class="ticket-plate">${escapeHtml(c.plate||'')}</div>
+          <div class="ticket-km">${fmtKm(c.current_km)}</div>
+        </div>
+        <div class="ticket-stub">
+          <div class="pill ${pillCls}">${pillTxt}</div>
+          <div class="stub-sub">próx. ${fmtKm(c.next_change_km)}</div>
+        </div>
+      </div>`;
+    }).join('') + `<div style="text-align:center;margin-top:10px;"><a class="link" id="link-claim" style="font-size:12.5px;">Recebi um carro por transferência</a></div>
+      <div style="text-align:center;margin-top:24px;"><a class="link" id="link-logout" style="font-size:11.5px;color:var(--ink-faint);">Sair da conta</a></div>`;
+    content.querySelectorAll('.ticket').forEach(el => el.addEventListener('click', () => { route = {screen:'car', carId: el.dataset.id}; render(); }));
+  }
+  document.getElementById('link-claim').onclick = () => openModal('modal-claim');
+  document.getElementById('link-logout').onclick = async () => { await sb.auth.signOut(); session=null; render(); };
+}
+
+function renderCarDetail(carId){
+  const car = myCars.find(c => c.id === carId);
+  const content = document.getElementById('content');
+  if(!car){ route={screen:'home'}; renderHome(); return; }
+
+  const statusMap = {
+    ok: {cls:'ok', label:'Óleo em dia', txt:'A próxima troca ainda está dentro do intervalo normal.'},
+    proxima: {cls:'warn', label:'Troca se aproximando', txt:'Faltam menos de 500 km para a próxima troca.'},
+    atrasada: {cls:'danger', label:'Troca atrasada', txt:'O KM atual já passou do ponto recomendado.'}
+  };
+  const st = statusMap[car.status] || statusMap.ok;
+  const publicUrl = `${location.origin}${location.pathname}?c=${car.qr_token}`;
+
+  content.innerHTML = `
+    <div class="back-row">
+      <div class="icon-btn" id="btn-back">←</div>
+      <h2>${escapeHtml(car.nickname)}</h2>
+    </div>
+    <div class="hangtag">
+      <div class="qr-box"><canvas id="qr-canvas"></canvas></div>
+      <div class="qr-token">${car.qr_token}</div>
+      <div class="qr-hint">Cole no para-brisa. Quem escanear vê só o histórico de KM — placa e RENAVAM ficam privados, visíveis apenas pra você aqui dentro.</div>
+      <button class="btn ghost" id="btn-download-qr" style="margin-top:12px;">⬇ Baixar QR Code (PNG)</button>
+    </div>
+    <div class="status-banner ${st.cls}"><div><b>${st.label}</b>${st.txt}</div></div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-label">KM atual</div><div class="stat-val">${fmtKm(car.current_km)}</div></div>
+      <div class="stat"><div class="stat-label">Próxima troca</div><div class="stat-val accent">${fmtKm(car.next_change_km)}</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-label">Placa</div><div class="stat-val">${escapeHtml(car.plate||'—')}</div></div>
+      <div class="stat"><div class="stat-label">RENAVAM</div><div class="stat-val">${escapeHtml(car.renavam||'—')}</div></div>
+    </div>
+    <div class="action-row">
+      <button class="btn primary" id="btn-open-change">Registrar troca</button>
+      <button class="btn" id="btn-open-update">Atualizar KM</button>
+    </div>
+    <div class="action-row">
+      <button class="btn danger-outline full" id="btn-open-transfer">Transferir posse deste carro</button>
+    </div>
+    <div class="section-title">Histórico</div>
+    <div id="hist-list"><div class="center-msg" style="margin-top:0;">Carregando…</div></div>
+  `;
+
+  new QRious({ element: document.getElementById('qr-canvas'), value: publicUrl, size: 180, background:'#fff', foreground:'#15120E' });
+
+  document.getElementById('btn-back').onclick = () => { route={screen:'home'}; render(); };
+  document.getElementById('btn-download-qr').onclick = () => {
+    const canvas = document.getElementById('qr-canvas');
+    const a = document.createElement('a');
+    a.download = `qrcode-${car.qr_token}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+  document.getElementById('btn-open-change').onclick = () => { document.getElementById('f-change-date').value = todayISO(); document.getElementById('f-change-km').value=''; document.getElementById('f-change-error').classList.remove('show'); openModal('modal-change'); };
+  document.getElementById('btn-open-update').onclick = () => { document.getElementById('f-update-km').value=''; document.getElementById('f-update-error').classList.remove('show'); openModal('modal-update'); };
+  document.getElementById('btn-open-transfer').onclick = () => { document.getElementById('transfer-code-area').innerHTML=''; openModal('modal-transfer'); };
+
+  document.getElementById('btn-save-change').onclick = async () => {
+    const km = parseInt(document.getElementById('f-change-km').value, 10);
+    const date = document.getElementById('f-change-date').value || todayISO();
+    const err = document.getElementById('f-change-error');
+    if(!km || km < car.current_km){ err.textContent = 'KM precisa ser maior ou igual ao KM atual ('+fmtKm(car.current_km)+').'; err.classList.add('show'); return; }
+    const { error } = await sb.rpc('register_oil_change', { p_car_id: car.id, p_km: km, p_date: date });
+    if(error){ err.textContent = error.message; err.classList.add('show'); return; }
+    closeModal('modal-change'); showToast('Troca registrada!');
+    await loadMyCars(); await loadHistory(car.id); render();
+  };
+  document.getElementById('btn-save-update').onclick = async () => {
+    const km = parseInt(document.getElementById('f-update-km').value, 10);
+    const err = document.getElementById('f-update-error');
+    if(!km || km < car.current_km){ err.textContent = 'KM precisa ser maior ou igual ao KM atual ('+fmtKm(car.current_km)+').'; err.classList.add('show'); return; }
+    const { error } = await sb.rpc('update_km', { p_car_id: car.id, p_km: km });
+    if(error){ err.textContent = error.message; err.classList.add('show'); return; }
+    closeModal('modal-update'); showToast('KM atualizado!');
+    await loadMyCars(); render();
+  };
+  document.getElementById('btn-gen-transfer').onclick = async () => {
+    const { data, error } = await sb.rpc('request_transfer', { p_car_id: car.id });
+    if(error){ showToast(error.message); return; }
+    document.getElementById('transfer-code-area').innerHTML = `<div class="code-display">${data}</div><div class="qr-hint">Válido por 24h. Passe esse código pro novo dono — ele também vai precisar do RENAVAM do carro pra confirmar.</div>`;
+  };
+
+  loadHistory(car.id);
+}
+
+async function loadHistory(carId){
+  const [{data: changes}, {data: updates}] = await Promise.all([
+    sb.from('oil_changes').select('*').eq('car_id', carId),
+    sb.from('km_updates').select('*').eq('car_id', carId)
+  ]);
+  const items = [
+    ...(changes||[]).map(c => ({tipo:'change', label:'Troca de óleo', date:c.change_date, km:c.km_at_change, ts:c.created_at})),
+    ...(updates||[]).map(u => ({tipo:'update', label:'Atualização de KM', date:u.created_at.slice(0,10), km:u.km, ts:u.created_at}))
+  ].sort((a,b) => new Date(b.ts) - new Date(a.ts));
+
+  const el = document.getElementById('hist-list');
+  if(!el) return;
+  el.innerHTML = items.length ? items.map(h => `
+    <div class="hist-item">
+      <div class="hist-left"><span class="hist-tag ${h.tipo}">${h.label}</span><span class="hist-date">${fmtDate(h.date)}</span></div>
+      <div class="hist-km">${fmtKm(h.km)}</div>
+    </div>`).join('') : '<div class="center-msg" style="margin-top:0;">Sem histórico ainda.</div>';
+}
+
+// =========================================================
+// CADASTRAR CARRO
+// =========================================================
+document.getElementById('fab-add').addEventListener('click', () => {
+  ['f-nick','f-plate','f-renavam','f-km'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-add-error').classList.remove('show');
+  openModal('modal-add');
+});
+document.getElementById('interval-grid').addEventListener('click', (e) => {
+  const opt = e.target.closest('.interval-opt'); if(!opt) return;
+  document.querySelectorAll('.interval-opt').forEach(o => o.classList.remove('active'));
+  opt.classList.add('active'); pendingIntervalVal = parseInt(opt.dataset.val,10);
+});
+document.getElementById('btn-save-car').addEventListener('click', async () => {
+  const nick = document.getElementById('f-nick').value.trim();
+  const plate = document.getElementById('f-plate').value.trim();
+  const renavam = document.getElementById('f-renavam').value.trim();
+  const km = parseInt(document.getElementById('f-km').value, 10);
+  const err = document.getElementById('f-add-error');
+  if(!nick || !renavam || renavam.length < 9 || isNaN(km) || km < 0){
+    err.textContent = 'Preencha apelido, RENAVAM válido e KM atual.'; err.classList.add('show'); return;
+  }
+  const { data, error } = await sb.rpc('create_car', { p_nickname: nick, p_plate: plate, p_renavam: renavam, p_interval_km: pendingIntervalVal, p_current_km: km });
+  if(error){ err.textContent = error.message; err.classList.add('show'); return; }
+  closeModal('modal-add'); showToast('Carro cadastrado!');
+  await loadMyCars();
+  route = { screen:'car', carId: data };
+  render();
+});
+
+// =========================================================
+// ASSUMIR CARRO (transferência)
+// =========================================================
+document.getElementById('btn-save-claim').addEventListener('click', async () => {
+  const code = document.getElementById('f-claim-code').value.trim();
+  const plate = document.getElementById('f-claim-plate').value.trim();
+  const renavam = document.getElementById('f-claim-renavam').value.trim();
+  const err = document.getElementById('f-claim-error');
+  if(!code || !renavam){ err.textContent = 'Preencha o código e o RENAVAM.'; err.classList.add('show'); return; }
+  const { data, error } = await sb.rpc('claim_transfer', { p_code: code, p_plate: plate, p_renavam: renavam });
+  if(error){ err.textContent = error.message; err.classList.add('show'); return; }
+  closeModal('modal-claim'); showToast('Carro assumido com sucesso!');
+  await loadMyCars();
+  route = { screen:'car', carId: data };
+  render();
+});
+
+document.getElementById('btn-home').addEventListener('click', () => { route = {screen:'home'}; render(); });
+
+// =========================================================
+// PUSH NOTIFICATIONS (PWA instalado)
+// =========================================================
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+async function setupPush(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if(VAPID_PUBLIC_KEY.startsWith('SUA-')) return; // não configurado ainda
+  try{
+    const reg = await navigator.serviceWorker.register('sw.js');
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted') return;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    }
+    const j = sub.toJSON();
+    await sb.from('push_subscriptions').upsert({
+      user_id: session.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth
+    }, { onConflict: 'user_id,endpoint' });
+  }catch(e){ console.warn('Push setup falhou', e); }
+}
+
+boot();
+</script>
+</body>
+</html>
