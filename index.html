@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
+  /* ---- mesmos estilos de antes, mantidos ---- */
   :root{
     --bg:#15120E; --surface:#1F1B16; --surface-2:#2A251E;
     --ink:#F3ECE1; --ink-dim:#B8AFA0; --ink-faint:#7E7568;
@@ -77,6 +78,7 @@
   .btn.ghost{background:transparent;}
   .btn.full{width:100%;}
   .btn.danger-outline{border-color:rgba(214,85,63,0.4);color:var(--danger);}
+  .btn.small{flex:0 1 auto;min-width:auto;padding:8px 14px;font-size:11px;}
   .section-title{ font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.06em; margin:22px 0 10px; }
   .hist-item{ display:flex; justify-content:space-between; align-items:center; padding:12px 4px; border-bottom:1px solid var(--hairline); font-size:12.5px; }
   .hist-item:last-child{border-bottom:none;}
@@ -111,6 +113,49 @@
   .tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
   a.link{color:var(--accent);text-decoration:none;font-weight:600;}
   .center-msg{margin-top:80px;text-align:center;color:var(--ink-dim);font-size:13px;}
+
+  /* ---- novidades para o rastreamento ---- */
+  .trip-panel {
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    margin: 10px 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .trip-panel .trip-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .trip-panel .trip-info .dist {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .trip-panel .trip-info .status {
+    font-size: 12px;
+    color: var(--ink-dim);
+    background: var(--surface);
+    padding: 2px 10px;
+    border-radius: 100px;
+  }
+  .trip-panel .trip-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .trip-panel .trip-buttons .btn {
+    flex: 1;
+  }
+  .trip-panel .trip-hint {
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: center;
+    margin-top: 4px;
+  }
 </style>
 </head>
 <body>
@@ -127,7 +172,7 @@
   <div class="toast" id="toast"></div>
 </div>
 
-<!-- Modal: adicionar carro -->
+<!-- Modais (mesmos de antes, sem alterações) -->
 <div class="overlay" id="modal-add">
   <div class="sheet">
     <h3>Cadastrar carro</h3>
@@ -154,7 +199,6 @@
   </div>
 </div>
 
-<!-- Modal: registrar troca -->
 <div class="overlay" id="modal-change">
   <div class="sheet">
     <h3>Registrar troca de óleo</h3>
@@ -171,7 +215,6 @@
   </div>
 </div>
 
-<!-- Modal: atualizar km -->
 <div class="overlay" id="modal-update">
   <div class="sheet">
     <h3>Atualizar KM atual</h3>
@@ -186,7 +229,6 @@
   </div>
 </div>
 
-<!-- Modal: transferir (dono atual gera código) -->
 <div class="overlay" id="modal-transfer">
   <div class="sheet">
     <h3>Transferir posse do carro</h3>
@@ -199,7 +241,6 @@
   </div>
 </div>
 
-<!-- Modal: resgatar carro por transferência -->
 <div class="overlay" id="modal-claim">
   <div class="sheet">
     <h3>Assumir um carro</h3>
@@ -243,6 +284,26 @@ function showToast(msg){ const t = document.getElementById('toast'); t.textConte
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => closeModal(el.dataset.close)));
+
+// ---------- estado de rastreamento ----------
+let tracking = {
+  active: false,
+  paused: false,
+  watchId: null,
+  startPos: null,
+  lastPos: null,
+  totalDistance: 0, // em km
+  carId: null
+};
+
+// fórmula de Haversine para distância em km entre dois pontos (lat, lng)
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
 // =========================================================
 // ROTEAMENTO DE ENTRADA: link público do QR (?c=TOKEN) não exige login
@@ -431,6 +492,9 @@ function renderHome(){
   document.getElementById('link-logout').onclick = async () => { await sb.auth.signOut(); session=null; updateChrome(); render(); };
 }
 
+// =========================================================
+// DETALHE DO CARRO (com rastreamento de viagem)
+// =========================================================
 function renderCarDetail(carId){
   const car = myCars.find(c => c.id === carId);
   const content = document.getElementById('content');
@@ -444,6 +508,40 @@ function renderCarDetail(carId){
   const st = statusMap[car.status] || statusMap.ok;
   const publicUrl = `${location.origin}${location.pathname}?c=${car.qr_token}`;
 
+  // Verifica se há rastreamento ativo para este carro
+  const isTrackingThis = tracking.active && tracking.carId === carId;
+  const distanceDisplay = tracking.totalDistance ? tracking.totalDistance.toFixed(2) : '0.00';
+  const statusText = tracking.active ? (tracking.paused ? '⏸ Pausado' : '▶️ Rastreando') : '⏹ Parado';
+
+  let tripPanel = `
+    <div class="trip-panel">
+      <div class="trip-info">
+        <span class="dist">${distanceDisplay} km</span>
+        <span class="status">${statusText}</span>
+      </div>
+      <div class="trip-buttons">
+  `;
+
+  if (!tracking.active) {
+    tripPanel += `<button class="btn primary" id="btn-trip-start">🚗 Iniciar viagem</button>`;
+  } else if (tracking.carId === carId) {
+    if (tracking.paused) {
+      tripPanel += `<button class="btn primary" id="btn-trip-resume">▶ Retomar</button>`;
+    } else {
+      tripPanel += `<button class="btn" id="btn-trip-pause">⏸ Pausar</button>`;
+    }
+    tripPanel += `<button class="btn danger-outline" id="btn-trip-end">⏹ Finalizar</button>`;
+  } else {
+    // outro carro está rastreando — não permitir iniciar
+    tripPanel += `<button class="btn" disabled>⏳ Viagem em andamento em outro carro</button>`;
+  }
+
+  tripPanel += `
+      </div>
+      <div class="trip-hint">Mantenha o app em primeiro plano durante a viagem. A distância é calculada por GPS.</div>
+    </div>
+  `;
+
   content.innerHTML = `
     <div class="back-row">
       <div class="icon-btn" id="btn-back">←</div>
@@ -452,7 +550,7 @@ function renderCarDetail(carId){
     <div class="hangtag">
       <div class="qr-box"><canvas id="qr-canvas"></canvas></div>
       <div class="qr-token">${car.qr_token}</div>
-      <div class="qr-hint">Cole no para-brisa. Quem escanear vê só o histórico de KM — placa e RENAVAM ficam privados, visíveis apenas pra você aqui dentro.</div>
+      <div class="qr-hint">Cole no para-brisa. Quem escanear vê só o histórico de KM — placa e RENAVAM ficam privados.</div>
       <button class="btn ghost" id="btn-download-qr" style="margin-top:12px;">⬇ Baixar QR Code (PNG)</button>
     </div>
     <div class="status-banner ${st.cls}"><div><b>${st.label}</b>${st.txt}</div></div>
@@ -464,6 +562,7 @@ function renderCarDetail(carId){
       <div class="stat"><div class="stat-label">Placa</div><div class="stat-val">${escapeHtml(car.plate||'—')}</div></div>
       <div class="stat"><div class="stat-label">RENAVAM</div><div class="stat-val">${escapeHtml(car.renavam||'—')}</div></div>
     </div>
+    ${tripPanel}
     <div class="action-row">
       <button class="btn primary" id="btn-open-change">Registrar troca</button>
       <button class="btn" id="btn-open-update">Atualizar KM</button>
@@ -475,8 +574,10 @@ function renderCarDetail(carId){
     <div id="hist-list"><div class="center-msg" style="margin-top:0;">Carregando…</div></div>
   `;
 
+  // Gera QR
   new QRious({ element: document.getElementById('qr-canvas'), value: publicUrl, size: 180, background:'#fff', foreground:'#15120E' });
 
+  // Eventos
   document.getElementById('btn-back').onclick = () => { route={screen:'home'}; render(); };
   document.getElementById('btn-download-qr').onclick = () => {
     const canvas = document.getElementById('qr-canvas');
@@ -489,6 +590,17 @@ function renderCarDetail(carId){
   document.getElementById('btn-open-update').onclick = () => { document.getElementById('f-update-km').value=''; document.getElementById('f-update-error').classList.remove('show'); openModal('modal-update'); };
   document.getElementById('btn-open-transfer').onclick = () => { document.getElementById('transfer-code-area').innerHTML=''; openModal('modal-transfer'); };
 
+  // Trip buttons
+  const btnStart = document.getElementById('btn-trip-start');
+  if (btnStart) btnStart.onclick = () => startTrip(car.id);
+  const btnPause = document.getElementById('btn-trip-pause');
+  if (btnPause) btnPause.onclick = () => pauseTrip();
+  const btnResume = document.getElementById('btn-trip-resume');
+  if (btnResume) btnResume.onclick = () => resumeTrip();
+  const btnEnd = document.getElementById('btn-trip-end');
+  if (btnEnd) btnEnd.onclick = () => endTrip(car.id);
+
+  // Modais
   document.getElementById('btn-save-change').onclick = async () => {
     const km = parseInt(document.getElementById('f-change-km').value, 10);
     const date = document.getElementById('f-change-date').value || todayISO();
@@ -534,6 +646,139 @@ async function loadHistory(carId){
       <div class="hist-left"><span class="hist-tag ${h.tipo}">${h.label}</span><span class="hist-date">${fmtDate(h.date)}</span></div>
       <div class="hist-km">${fmtKm(h.km)}</div>
     </div>`).join('') : '<div class="center-msg" style="margin-top:0;">Sem histórico ainda.</div>';
+}
+
+// =========================================================
+// FUNÇÕES DE RASTREAMENTO
+// =========================================================
+function startTrip(carId) {
+  if (tracking.active) {
+    showToast('Já existe uma viagem em andamento.');
+    return;
+  }
+  if (!navigator.geolocation) {
+    showToast('Seu navegador não suporta geolocalização.');
+    return;
+  }
+
+  tracking.carId = carId;
+  tracking.totalDistance = 0;
+  tracking.paused = false;
+  tracking.active = true;
+
+  // Inicia o watch
+  tracking.watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      const newPos = { lat: latitude, lng: longitude };
+      if (tracking.startPos === null) {
+        tracking.startPos = newPos;
+        tracking.lastPos = newPos;
+        showToast('Viagem iniciada!');
+      } else if (!tracking.paused) {
+        const dist = haversine(tracking.lastPos.lat, tracking.lastPos.lng, newPos.lat, newPos.lng);
+        if (dist > 0.01) { // ignora pequenas variações
+          tracking.totalDistance += dist;
+          tracking.lastPos = newPos;
+          // Atualiza o display em tempo real
+          updateTripDisplay();
+        }
+      }
+    },
+    (err) => {
+      showToast('Erro de GPS: ' + err.message);
+      if (err.code === 1) showToast('Permita a localização para usar esta função.');
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+  );
+
+  updateTripDisplay();
+  render(); // recarrega a tela para mostrar os botões
+}
+
+function pauseTrip() {
+  if (!tracking.active || tracking.paused) return;
+  tracking.paused = true;
+  showToast('Viagem pausada.');
+  updateTripDisplay();
+  render();
+}
+
+function resumeTrip() {
+  if (!tracking.active || !tracking.paused) return;
+  tracking.paused = false;
+  tracking.lastPos = null; // força reiniciar a última posição
+  showToast('Viagem retomada.');
+  updateTripDisplay();
+  render();
+}
+
+async function endTrip(carId) {
+  if (!tracking.active || tracking.carId !== carId) return;
+
+  // Para o watch
+  if (tracking.watchId !== null) {
+    navigator.geolocation.clearWatch(tracking.watchId);
+    tracking.watchId = null;
+  }
+
+  const distancia = tracking.totalDistance;
+  const car = myCars.find(c => c.id === carId);
+  if (!car) {
+    showToast('Carro não encontrado.');
+    resetTracking();
+    render();
+    return;
+  }
+
+  // Pergunta se deseja atualizar o KM
+  if (distancia > 0.1) {
+    const confirmar = confirm(`Distância percorrida: ${distancia.toFixed(2)} km.\nDeseja atualizar o KM do carro (${car.nickname}) com esta distância?`);
+    if (confirmar) {
+      const novoKm = Math.round(car.current_km + distancia);
+      const { error } = await sb.rpc('update_km', { p_car_id: carId, p_km: novoKm });
+      if (error) {
+        showToast('Erro ao atualizar KM: ' + error.message);
+      } else {
+        showToast(`KM atualizado para ${fmtKm(novoKm)}`);
+        await loadMyCars();
+      }
+    } else {
+      showToast('Distância descartada.');
+    }
+  } else {
+    showToast('Distância muito pequena (menos de 0.1 km). Nada foi atualizado.');
+  }
+
+  resetTracking();
+  render();
+}
+
+function resetTracking() {
+  tracking.active = false;
+  tracking.paused = false;
+  tracking.watchId = null;
+  tracking.startPos = null;
+  tracking.lastPos = null;
+  tracking.totalDistance = 0;
+  tracking.carId = null;
+  updateTripDisplay();
+}
+
+function updateTripDisplay() {
+  // Atualiza o elemento de distância se existir
+  const distEl = document.querySelector('.trip-panel .dist');
+  if (distEl) {
+    distEl.textContent = tracking.totalDistance.toFixed(2) + ' km';
+  }
+  const statusEl = document.querySelector('.trip-panel .status');
+  if (statusEl) {
+    if (tracking.active) {
+      statusEl.textContent = tracking.paused ? '⏸ Pausado' : '▶️ Rastreando';
+    } else {
+      statusEl.textContent = '⏹ Parado';
+    }
+  }
 }
 
 // =========================================================
@@ -596,7 +841,7 @@ function urlBase64ToUint8Array(base64String) {
 }
 async function setupPush(){
   if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if(VAPID_PUBLIC_KEY.startsWith('SUA-')) return; // não configurado ainda
+  if(VAPID_PUBLIC_KEY.startsWith('SUA-')) return;
   try{
     const reg = await navigator.serviceWorker.register('sw.js');
     const perm = await Notification.requestPermission();
